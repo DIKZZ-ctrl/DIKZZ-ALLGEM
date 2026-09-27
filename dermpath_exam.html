@@ -156,4 +156,12 @@ function finishSet(){
 }
 function goHome(){renderHome()}
 renderHome();
-</script></body></html>
+</script><!--auto-home-btn-->
+<a href="index.html" class="auto-home-btn" aria-label="กลับไปหน้าเมนู">&#8592; เมนู</a>
+<style>
+.auto-home-btn{position:fixed;left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:2147483000;display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border-radius:999px;background:#ffffff;color:#1f2937;border:1px solid rgba(0,0,0,.15);box-shadow:0 2px 8px rgba(0,0,0,.18);font:600 14px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.auto-home-btn:hover,.auto-home-btn:focus-visible{background:#f3f4f6;outline:none}
+@media (prefers-color-scheme:dark){.auto-home-btn{background:#1f2937;color:#f3f4f6;border-color:rgba(255,255,255,.2)}.auto-home-btn:hover,.auto-home-btn:focus-visible{background:#374151}}
+@media print{.auto-home-btn{display:none!important}}
+</style>
+</body></html>
