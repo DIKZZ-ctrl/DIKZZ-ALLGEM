@@ -1,0 +1,185 @@
+From 4f7ec2e079790f49aea4d2f9bd7327e1414c34a1 Mon Sep 17 00:00:00 2001
+From: DIKZZ-ctrl <fadilwaeji@gmail.com>
+Date: Mon, 28 Sep 2026 04:35:04 +0700
+Subject: [PATCH] Add floating home button to exam pages + auto-insert workflow
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Insert "← เมนู" floating button (link to index.html) into
+  Endocrine Exam 1 Mock, Endocrine Exam 1 · Set 2 Mock, dermpath_exam
+- .github/scripts/add_home_button.py: idempotent stdlib script that adds
+  the button to root .html files lacking a link back to index.html
+- .github/workflows/add-home-button.yml: runs the script on push of *.html
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017VAms19D6HUfyz7fDPupnm
+---
+ .github/scripts/add_home_button.py          | 50 +++++++++++++++++++++
+ .github/workflows/add-home-button.yml       | 38 ++++++++++++++++
+ Endocrine Exam 1 Mock.html                  |  8 ++++
+ "Endocrine Exam 1 \302\267 Set 2 Mock.html" |  8 ++++
+ dermpath_exam.html                          | 10 ++++-
+ 5 files changed, 113 insertions(+), 1 deletion(-)
+ create mode 100644 .github/scripts/add_home_button.py
+ create mode 100644 .github/workflows/add-home-button.yml
+
+diff --git a/.github/scripts/add_home_button.py b/.github/scripts/add_home_button.py
+new file mode 100644
+index 0000000..4fff3d5
+--- /dev/null
++++ b/.github/scripts/add_home_button.py
+@@ -0,0 +1,50 @@
++#!/usr/bin/env python3
++"""Add a floating "← เมนู" button (link to index.html) to every root-level .html
++file that does not already link back to index.html. Idempotent."""
++import pathlib
++import re
++import sys
++
++ROOT = pathlib.Path(__file__).resolve().parents[2]
++MARKER = "<!--auto-home-btn-->"
++HAS_HOME_LINK = re.compile(r"""href\s*=\s*["']?(?:\./)?index\.html(?:[#?"'\s>])""", re.I)
++BODY_END = re.compile(r"</body\s*>", re.I)
++
++SNIPPET = MARKER + """
++<a href="index.html" class="auto-home-btn" aria-label="กลับไปหน้าเมนู">&#8592; เมนู</a>
++<style>
++.auto-home-btn{position:fixed;left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:2147483000;display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border-radius:999px;background:#ffffff;color:#1f2937;border:1px solid rgba(0,0,0,.15);box-shadow:0 2px 8px rgba(0,0,0,.18);font:600 14px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;text-decoration:none;-webkit-tap-highlight-color:transparent}
++.auto-home-btn:hover,.auto-home-btn:focus-visible{background:#f3f4f6;outline:none}
++@media (prefers-color-scheme:dark){.auto-home-btn{background:#1f2937;color:#f3f4f6;border-color:rgba(255,255,255,.2)}.auto-home-btn:hover,.auto-home-btn:focus-visible{background:#374151}}
++@media print{.auto-home-btn{display:none!important}}
++</style>
++"""
++
++
++def process(path: pathlib.Path) -> bool:
++    if path.name.lower() == "index.html":
++        return False
++    text = path.read_text(encoding="utf-8")
++    if MARKER in text or HAS_HOME_LINK.search(text):
++        return False
++    matches = list(BODY_END.finditer(text))
++    if matches:
++        i = matches[-1].start()
++        new = text[:i] + SNIPPET + text[i:]
++    else:
++        new = text.rstrip("\n") + "\n" + SNIPPET
++    path.write_text(new, encoding="utf-8")
++    return True
++
++
++def main() -> int:
++    changed = [p.name for p in sorted(ROOT.glob("*.html")) if process(p)]
++    for name in changed:
++        print(f"added home button: {name}")
++    if not changed:
++        print("no changes")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/.github/workflows/add-home-button.yml b/.github/workflows/add-home-button.yml
+new file mode 100644
+index 0000000..d25b564
+--- /dev/null
++++ b/.github/workflows/add-home-button.yml
+@@ -0,0 +1,38 @@
++name: Add home button
++
++on:
++  push:
++    branches: [main]
++    paths:
++      - "*.html"
++      - ".github/scripts/add_home_button.py"
++  workflow_dispatch:
++
++permissions:
++  contents: write
++
++concurrency:
++  group: add-home-button
++  cancel-in-progress: false
++
++jobs:
++  add-button:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: "3.x"
++      - name: Insert home button
++        run: python .github/scripts/add_home_button.py
++      - name: Commit changes
++        run: |
++          if git diff --quiet; then
++            echo "Nothing to commit"
++            exit 0
++          fi
++          git config user.name "github-actions[bot]"
++          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
++          git add -- '*.html'
++          git commit -m "chore: auto-add home button [skip ci]"
++          git push
+diff --git a/Endocrine Exam 1 Mock.html b/Endocrine Exam 1 Mock.html
+index 74b61db..eca4ad8 100644
+--- a/Endocrine Exam 1 Mock.html	
++++ b/Endocrine Exam 1 Mock.html	
+@@ -239,4 +239,12 @@ document.addEventListener('keydown',e=>{
+ render();
+ </script>
+ 
++<!--auto-home-btn-->
++<a href="index.html" class="auto-home-btn" aria-label="กลับไปหน้าเมนู">&#8592; เมนู</a>
++<style>
++.auto-home-btn{position:fixed;left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:2147483000;display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border-radius:999px;background:#ffffff;color:#1f2937;border:1px solid rgba(0,0,0,.15);box-shadow:0 2px 8px rgba(0,0,0,.18);font:600 14px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;text-decoration:none;-webkit-tap-highlight-color:transparent}
++.auto-home-btn:hover,.auto-home-btn:focus-visible{background:#f3f4f6;outline:none}
++@media (prefers-color-scheme:dark){.auto-home-btn{background:#1f2937;color:#f3f4f6;border-color:rgba(255,255,255,.2)}.auto-home-btn:hover,.auto-home-btn:focus-visible{background:#374151}}
++@media print{.auto-home-btn{display:none!important}}
++</style>
+ </body></html>
+\ No newline at end of file
+diff --git "a/Endocrine Exam 1 \302\267 Set 2 Mock.html" "b/Endocrine Exam 1 \302\267 Set 2 Mock.html"
+index 1278265..1f5b3cf 100644
+--- "a/Endocrine Exam 1 \302\267 Set 2 Mock.html"	
++++ "b/Endocrine Exam 1 \302\267 Set 2 Mock.html"	
+@@ -239,4 +239,12 @@ document.addEventListener('keydown',e=>{
+ render();
+ </script>
+ 
++<!--auto-home-btn-->
++<a href="index.html" class="auto-home-btn" aria-label="กลับไปหน้าเมนู">&#8592; เมนู</a>
++<style>
++.auto-home-btn{position:fixed;left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:2147483000;display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border-radius:999px;background:#ffffff;color:#1f2937;border:1px solid rgba(0,0,0,.15);box-shadow:0 2px 8px rgba(0,0,0,.18);font:600 14px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;text-decoration:none;-webkit-tap-highlight-color:transparent}
++.auto-home-btn:hover,.auto-home-btn:focus-visible{background:#f3f4f6;outline:none}
++@media (prefers-color-scheme:dark){.auto-home-btn{background:#1f2937;color:#f3f4f6;border-color:rgba(255,255,255,.2)}.auto-home-btn:hover,.auto-home-btn:focus-visible{background:#374151}}
++@media print{.auto-home-btn{display:none!important}}
++</style>
+ </body></html>
+\ No newline at end of file
+diff --git a/dermpath_exam.html b/dermpath_exam.html
+index 0f98281..b2e9a92 100644
+--- a/dermpath_exam.html
++++ b/dermpath_exam.html
+@@ -156,4 +156,12 @@ function finishSet(){
+ }
+ function goHome(){renderHome()}
+ renderHome();
+-</script></body></html>
+\ No newline at end of file
++</script><!--auto-home-btn-->
++<a href="index.html" class="auto-home-btn" aria-label="กลับไปหน้าเมนู">&#8592; เมนู</a>
++<style>
++.auto-home-btn{position:fixed;left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:2147483000;display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border-radius:999px;background:#ffffff;color:#1f2937;border:1px solid rgba(0,0,0,.15);box-shadow:0 2px 8px rgba(0,0,0,.18);font:600 14px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;text-decoration:none;-webkit-tap-highlight-color:transparent}
++.auto-home-btn:hover,.auto-home-btn:focus-visible{background:#f3f4f6;outline:none}
++@media (prefers-color-scheme:dark){.auto-home-btn{background:#1f2937;color:#f3f4f6;border-color:rgba(255,255,255,.2)}.auto-home-btn:hover,.auto-home-btn:focus-visible{background:#374151}}
++@media print{.auto-home-btn{display:none!important}}
++</style>
++</body></html>
+\ No newline at end of file
+-- 
+2.43.0
+
